@@ -55,14 +55,33 @@ echo "====================================================="
 echo "✅ Setup Complete! Launching InternHunter Interactive Mode..."
 echo "====================================================="
 mkdir -p ~/.local/bin
-cat << 'EOF' > ~/.local/bin/intern-hunter
+
+cat > ~/.local/bin/intern-hunter << EOF
 #!/bin/bash
-export PATH="$HOME/.local/bin:$PATH"
-cd "$(dirname "$(realpath "$0")")" 2>/dev/null || cd /home/kamyavardhan/Downloads/website-main/coldmail/intern-hunter-ai
-poetry run intern-hunter "$@"
+# === InternHunter Global Wrapper ===
+PROJECT_DIR="$(pwd)"
+
+cd "\$PROJECT_DIR" 2>/dev/null || {
+    echo "❌ Error: Cannot find InternHunter folder at \$PROJECT_DIR"
+    echo "Please update the PROJECT_DIR path in ~/.local/bin/intern-hunter"
+    exit 1
+}
+
+poetry run intern-hunter "\$@"
 EOF
+
 chmod +x ~/.local/bin/intern-hunter
-echo "🔗 'intern-hunter' command is now available globally! Make sure ~/.local/bin is in your PATH."
+
+# Add to PATH if not already there
+if [[ ":$PATH:" != *":$HOME/.local/bin:"* ]]; then
+    echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.bashrc
+    echo 'export PATH="$HOME/.local/bin:$PATH"' >> ~/.zshrc 2>/dev/null || true
+    export PATH="$HOME/.local/bin:$PATH"
+    echo "✅ Added ~/.local/bin to your PATH. Please run 'source ~/.bashrc' or restart your terminal."
+fi
+
+echo "🔗 'intern-hunter' command is now available globally!"
 echo "====================================================="
 poetry run intern-hunter setup
+
 
