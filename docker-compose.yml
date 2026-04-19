@@ -1,0 +1,15 @@
+version: '3.8'
+
+services:
+  intern-hunter:
+    build: .
+    volumes:
+      - ./.env:/app/.env
+      - ./config:/app/config
+      - ./obsidian_template:/app/obsidian_template
+      - ./exports:/app/exports
+      - ./master_resume.md:/app/master_resume.md
+      - ./kamyavardhan-dave-resume.pdf:/app/kamyavardhan-dave-resume.pdf
+    environment:
+      - PYTHONUNBUFFERED=1
+    command: schedule
