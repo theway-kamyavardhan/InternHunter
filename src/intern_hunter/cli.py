@@ -6,6 +6,7 @@ import asyncio
 import csv
 from datetime import datetime
 import os
+import sys
 
 from intern_hunter.config import settings
 from intern_hunter.core.scraper import JobScraper
@@ -135,31 +136,9 @@ def learn():
     console.print("✅ Self-learning complete! Future emails & scoring will now be smarter.", style="bold green")
 
 @app.command()
-def scrape():
-    """Only scrape jobs and print them"""
-    scraper = JobScraper()
-    jobs = asyncio.run(scraper.run())
-    for j in jobs:
-        console.print(f"{j.title} @ {j.company}")
-
-@app.command()
-def report():
-    """Generate and print the daily analytics report"""
-    console.print("[bold magenta]Checking replies and generating report...[/bold magenta]")
-    reply_intel = ReplyIntelligence()
-    reply_intel.check_replies()
-    console.print("Check your Obsidian Kanban for updates!")
-
-@app.command()
-def schedule():
-    """Start daily background scheduler"""
-    console.print("✅ Scheduler started — runs every day at 8 AM IST")
-    from intern_hunter.core.scheduler import start_scheduler
-    start_scheduler()
-
-@app.command()
 def models():
     """Switch LLM providers and Ollama models on the fly"""
+    import questionary
     provider = questionary.select(
         "Choose your LLM Provider:",
         choices=["ollama", "groq", "gemini"],
@@ -178,16 +157,77 @@ def models():
         else:
             console.print(f"[green]Switched to {provider}[/green]")
 
+def show_interactive_repl():
+    """Claude-Code style slash-command loop"""
+    console.print(Panel.fit(
+        "[bold cyan]🚀 InternHunter AI — 2026 Edition[/]\n"
+        "The smartest way to land top-tier AI/ML internships.\n"
+        "[italic]Type [/][bold yellow]/[/][italic] to see available commands.[/]",
+        border_style="cyan"
+    ))
+    
+    import questionary
+    while True:
+        try:
+            cmd = console.input("\n[bold cyan]>[/bold cyan] ").strip()
+            
+            if cmd in ["/", "/help"]:
+                console.print("\n[bold]Command Palette:[/bold]")
+                console.print("  [yellow]/setup[/yellow]   → Run full interactive configuration wizard")
+                console.print("  [yellow]/start[/yellow]   → Run full pipeline")
+                console.print("  [yellow]/dry-run[/yellow] → Run pipeline in safe test mode")
+                console.print("  [yellow]/learn[/yellow]   → Force self-learning from Obsidian")
+                console.print("  [yellow]/models[/yellow]  → Change AI model (local/cloud)")
+                console.print("  [yellow]/status[/yellow]  → Show pipeline health")
+                console.print("  [yellow]/quit[/yellow]    → Exit interactive mode")
+            
+            elif cmd == "/setup":
+                run_wizard()
+            elif cmd == "/start":
+                start(dry_run=False)
+            elif cmd == "/dry-run":
+                start(dry_run=True)
+            elif cmd == "/learn":
+                learn()
+            elif cmd == "/models":
+                models()
+            elif cmd == "/status":
+                console.print(Panel("🟢 [bold green]System is healthy and ready to hunt![/bold green]\n\n"
+                                    f"• Active Provider: [cyan]{settings.LLM_PROVIDER}[/cyan]\n"
+                                    f"• Daily Limit: {settings.max_emails_per_day} emails\n"
+                                    "• Next run: Manually triggered via /start", 
+                                    title="System Status", border_style="green"))
+            elif cmd in ["/quit", "/exit"]:
+                console.print("[italic]Happy hunting! Goodbye.[/italic]")
+                break
+            elif cmd == "":
+                continue
+            else:
+                console.print(f"[red]Unknown command '{cmd}'. Type / to see commands.[/red]")
+                
+        except KeyboardInterrupt:
+            console.print("\n[italic]Goodbye![/italic]")
+            break
+        except Exception as e:
+            console.print("[red]⚠️ Something went wrong executing that command. Please try again.[/red]")
+
 @app.callback(invoke_without_command=True)
 def main(ctx: typer.Context):
-    """Default command — launches wizard on first run"""
+    """Default command — launches Claude-Code REPL"""
     if ctx.invoked_subcommand is None:
-        console.print(Panel.fit(
-            "[bold cyan]InternHunter AI — 2026 Edition[/]\n"
-            "The smartest way to land remote AI/ML & research internships at OpenAI, Anthropic, Google DeepMind & more",
-            title="Welcome Kamyavardhan!"
-        ))
-        run_wizard()
+        try:
+            show_interactive_repl()
+        except KeyboardInterrupt:
+            pass
+        except Exception as e:
+            console.print("[red]⚠️ Encountered a fatal system error. Exiting cleanly.[/red]")
+
+def safe_entrypoint():
+    """Global wrapper to suppress all tracebacks from Typer."""
+    try:
+        app()
+    except Exception as e:
+        console.print("[red]⚠️ Something went wrong. Exiting cleanly.[/red]")
 
 if __name__ == "__main__":
-    app()
+    safe_entrypoint()

@@ -55,7 +55,7 @@ def detect_obsidian_vault() -> str | None:
         Path.home() / "Obsidian" / "Internships",
         Path.home() / "Documents" / "Obsidian" / "Internships",
         Path.home() / "vault" / "Internships",
-        Path("obsidian_template")
+        Path("obsidian_template").resolve()
     ]
     for p in common_paths:
         if p.exists():

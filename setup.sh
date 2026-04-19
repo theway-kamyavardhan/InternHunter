@@ -52,7 +52,17 @@ mkdir -p obsidian_template/Internships/Templates
 mkdir -p exports
 
 echo "====================================================="
-echo "✅ Setup Complete! Launching Interactive Wizard..."
+echo "✅ Setup Complete! Launching InternHunter Interactive Mode..."
+echo "====================================================="
+mkdir -p ~/.local/bin
+cat << 'EOF' > ~/.local/bin/intern-hunter
+#!/bin/bash
+export PATH="$HOME/.local/bin:$PATH"
+cd "$(dirname "$(realpath "$0")")" 2>/dev/null || cd /home/kamyavardhan/Downloads/website-main/coldmail/intern-hunter-ai
+poetry run intern-hunter "$@"
+EOF
+chmod +x ~/.local/bin/intern-hunter
+echo "🔗 'intern-hunter' command is now available globally! Make sure ~/.local/bin is in your PATH."
 echo "====================================================="
 poetry run intern-hunter setup
-echo "====================================================="
+
