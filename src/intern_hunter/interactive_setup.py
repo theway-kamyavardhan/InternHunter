@@ -85,6 +85,8 @@ def get_pulled_ollama_models():
     return []
 
 def pull_ollama_model(model_name: str):
+    if not model_name:
+        return False
     with console.status(f"[yellow]Pulling {model_name} (this might take a few minutes)...[/yellow]", spinner="dots"):
         try:
             subprocess.run(["ollama", "pull", model_name], check=True, capture_output=True)
@@ -126,7 +128,7 @@ def interactive_resume_editor():
     else:
         console.print("[red]→ No master_resume.md found! Please create one.[/red]")
 
-def run_wizard():
+def _run_wizard_impl():
     console.clear()
     console.print(Panel.fit("🚀 Let's set up InternHunter in under 2 minutes", style="bold cyan"))
 
@@ -159,68 +161,58 @@ def run_wizard():
     interactive_resume_editor()
 
     # 3. Local AI Support
-    console.print("\n[bold cyan][3/6] Smart Ollama Model Setup[/bold cyan]")
-    pulled_models = get_pulled_ollama_models()
+    console.print("\n[bold cyan][3/6] Smart AI Engine Setup[/bold cyan]")
     
-    model_table = Table(title="Available 2026 Models for your Hardware")
-    model_table.add_column("Model Name", style="cyan")
-    model_table.add_column("Size", style="yellow")
-    model_table.add_column("Est. Accuracy vs Cloud", style="green")
-    model_table.add_column("Recommended", style="magenta")
+    use_cloud_only = False
     
-    choices = []
-    default_model = "gemma2:9b"
-    
-    if ram_gb < 12:
-        model_table.add_row("gemma2:9b", "5.5 GB", "80%", "Yes (Sweet Spot)")
-        model_table.add_row("phi3.5:mini", "2.2 GB", "75%", "For low-end PCs")
-        choices = ["gemma2:9b", "phi3.5:mini"]
-        default_model = "gemma2:9b"
-    elif ram_gb < 28:
-        model_table.add_row("llama3.1:8b", "4.7 GB", "88%", "Yes (Sweet Spot)")
-        model_table.add_row("gemma2:9b", "5.5 GB", "80%", "Alternative")
-        model_table.add_row("qwen2.5:14b", "8.0 GB", "90%", "Heavier")
-        choices = ["llama3.1:8b", "gemma2:9b", "qwen2.5:14b"]
-        default_model = "llama3.1:8b"
-    else:
-        model_table.add_row("llama3.3:70b", "40.0 GB", "98%", "Yes (Cloud-level)")
-        model_table.add_row("qwen2.5:32b", "20.0 GB", "95%", "Very fast & smart")
-        model_table.add_row("llama3.1:8b", "4.7 GB", "88%", "Lightweight fallback")
-        choices = ["llama3.3:70b", "qwen2.5:32b", "llama3.1:8b"]
-        default_model = "llama3.3:70b"
-        
-    console.print(model_table)
+    ai_choice = questionary.select(
+        "How would you like to run the AI?",
+        choices=[
+            "1. Use an already downloaded local model (fastest)",
+            "2. Download a specific new Ollama model (type the name)",
+            "3. Use Cloud API only (Groq or Gemini - recommended for top-tier accuracy)"
+        ]
+    ).ask()
 
-    if pulled_models:
-        console.print(f"[italic]You already have: {', '.join(pulled_models)}[/italic]")
-
-    use_ollama = questionary.confirm("Want to run everything locally with Ollama? (Free & Private)").ask()
-    if use_ollama:
-        model_choice = questionary.select(
-            "Which model would you like to use?",
-            choices=choices,
-            default=default_model if default_model in choices else choices[0]
-        ).ask()
-        
-        if model_choice not in pulled_models:
-            success = pull_ollama_model(model_choice)
-            if not success:
-                console.print("[yellow]Falling back to cloud models...[/yellow]")
-                update_env_file("LLM_PROVIDER", "groq")
-                use_ollama = False
-            else:
-                update_env_file("LLM_PROVIDER", "ollama")
-                update_env_file("OLLAMA_MODEL", model_choice)
-        else:
-            console.print(f"[green]✅ {model_choice} is already ready to go![/green]")
-            update_env_file("LLM_PROVIDER", "ollama")
-            update_env_file("OLLAMA_MODEL", model_choice)
-    else:
+    if not ai_choice or ai_choice.startswith("3"):
+        use_cloud_only = True
         update_env_file("LLM_PROVIDER", "groq")
+        console.print("[green]Using Cloud API mode (Groq).[/green]")
+    elif ai_choice.startswith("1"):
+        pulled_models = get_pulled_ollama_models()
+        if not pulled_models:
+            console.print("[yellow]No local models found! Please download one or use Cloud API.[/yellow]")
+            use_cloud_only = True
+            update_env_file("LLM_PROVIDER", "groq")
+        else:
+            selected_model = questionary.select(
+                "Select a downloaded model:",
+                choices=pulled_models
+            ).ask()
+            if selected_model:
+                update_env_file("LLM_PROVIDER", "ollama")
+                update_env_file("OLLAMA_MODEL", selected_model)
+                console.print(f"[green]✅ Selected local model: {selected_model}[/green]")
+            else:
+                use_cloud_only = True
+                update_env_file("LLM_PROVIDER", "groq")
+    elif ai_choice.startswith("2"):
+        model_name = questionary.text("Enter exact model name (e.g. llama3.1:8b or qwen2.5:14b):").ask()
+        if model_name:
+            success = pull_ollama_model(model_name)
+            if success:
+                update_env_file("LLM_PROVIDER", "ollama")
+                update_env_file("OLLAMA_MODEL", model_name)
+            else:
+                use_cloud_only = True
+                update_env_file("LLM_PROVIDER", "groq")
+        else:
+            use_cloud_only = True
+            update_env_file("LLM_PROVIDER", "groq")
 
     # 4. API Keys
     console.print("\n[bold cyan][4/6] API Keys (secure input)[/bold cyan]")
-    if not use_ollama:
+    if use_cloud_only:
         groq_key = questionary.password("→ Groq API Key (Primary Cloud Provider):").ask()
         if groq_key: update_env_file("GROQ_API_KEY", groq_key)
 
@@ -247,7 +239,8 @@ def run_wizard():
 
     # 6. Self-learning
     console.print("\n[bold cyan][6/6] Obsidian Self-Learning Engine[/bold cyan]")
-    if questionary.confirm("Would you like me to learn from your existing Obsidian notes now? (makes everything smarter)").ask():
+    learn_choice = questionary.confirm("Would you like me to learn from your existing Obsidian notes now? (makes everything smarter)").ask()
+    if learn_choice:
         with console.status("[yellow]Reading your Obsidian notes and learning...[/yellow]", spinner="dots"):
             from intern_hunter.obsidian_learner import learn_from_obsidian
             learn_from_obsidian()
@@ -258,3 +251,9 @@ def run_wizard():
         with console.status("[yellow]Running pipeline (dry-run)...[/yellow]", spinner="dots"):
             subprocess.run(["intern-hunter", "start", "--dry-run"], capture_output=True)
             console.print("[green]✅ Pipeline finished successfully![/green]")
+
+def run_wizard():
+    try:
+        _run_wizard_impl()
+    except Exception as e:
+        console.print(Panel("⚠️ Something went wrong during setup. Please try again or choose Cloud mode.", border_style="red"))

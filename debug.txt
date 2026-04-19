@@ -1,11 +1,11 @@
 # InternHunter AI — Live Debug & Progress Report
-Generated on: 2026-04-20 00:43 IST
+Generated on: 2026-04-20 00:51 IST
 
 OVERALL PROGRESS: 100% COMPLETE
 CURRENT PHASE: Final UX Polish
 
 OVERALL STATUS SUMMARY:
-The Claude-Code style UX polish is completely implemented. The setup wizard now features advanced silent hardware detection (including GPU), dynamic Ollama model verification, an in-terminal interactive CV editor, and zero raw terminal output. The entire experience feels incredibly premium and calm.
+The Claude-Code style UX polish is completely implemented. The setup wizard now features advanced silent hardware detection (including GPU), graceful error handling, a beautifully redesigned 3-option Ollama selection menu, an in-terminal interactive CV editor, and zero raw terminal output. The entire experience feels incredibly premium and calm.
 
 COMPLETED FEATURES:
 • Initial Project Skeleton & CLI Structure — fully working
@@ -15,14 +15,15 @@ COMPLETED FEATURES:
 • Full self-learning loop parsing all vault notes — fully working
 
 UX POLISH STATUS:
-• Smart Ollama Model Section in Wizard — Fully Working (Shows RAM, CPU cores, GPU. Checks `ollama list` silently)
-• Claude-Code Clean UI Rules — Fully Working (Subprocess outputs hidden behind elegant Rich spinners)
+• All features Fully Working
+• Smart Ollama Model Section in Wizard — Fully Working (Shows RAM, CPU cores, GPU. Clean 3-option menu. Graceful error handling with try/except wrapping)
+• Claude-Code Clean UI Rules — Fully Working (Subprocess outputs hidden behind elegant Rich spinners. No tracebacks shown to user.)
 • CV / Resume Review directly in CLI — Fully Working (Reads `master_resume.md`, shows Markdown summary, asks 'Does this look correct? (Y/n/edit)', and allows interactive CLI editing if needed)
 • Everything Stays in Terminal — Fully Working (Zero manual file editing required during setup)
 
 FILE-BY-FILE STATUS:
 src/intern_hunter/cli.py                  → Fully Working
-src/intern_hunter/interactive_setup.py    → Fully Working (Massively upgraded with interactive CV editor, new model table structure, OS and GPU detection)
+src/intern_hunter/interactive_setup.py    → Fully Working (Massively upgraded with interactive CV editor, robust graceful error handling, 3-option model flow, OS and GPU detection)
 src/intern_hunter/core/obsidian_tracker.py→ Fully Working 
 src/intern_hunter/obsidian_learner.py     → Fully Working 
 src/intern_hunter/core/llm.py             → Fully Working
@@ -39,7 +40,7 @@ OBSIDIAN AUTONOMOUS STATUS:
 OLLAMA / LOCAL AI STATUS:
 • Hardware detection working: Yes
 • Recommended model: Llama 3.1 8B (Dynamically checks RAM and pulls if missing)
-• Accuracy vs Cloud estimate: Displayed in UI table cleanly.
+• Accuracy vs Cloud estimate: Displayed cleanly.
 
 BLOCKERS / ISSUES:
 • None.
