@@ -1,5 +1,5 @@
 # InternHunter AI — Live Debug & Progress Report
-Generated on: 2026-04-20 00:26 IST
+Generated on: 2026-04-20 00:28 IST
 
 OVERALL PROGRESS: 100% COMPLETE
 CURRENT PHASE: Final UX Polish
@@ -17,12 +17,12 @@ COMPLETED FEATURES:
 UX POLISH STATUS:
 • Smart Ollama Model Section in Wizard — Fully Working (Shows RAM, CPU cores, GPU. Checks `ollama list` silently)
 • Claude-Code Clean UI Rules — Fully Working (Subprocess outputs hidden behind elegant Rich spinners)
-• CV / Resume Review directly in CLI — Fully Working (Reads `master_resume.md`, shows Markdown summary, allows interactive CLI editing if needed)
+• CV / Resume Review directly in CLI — Fully Working (Reads `master_resume.md`, shows Markdown summary, asks 'Does this look correct? (Y/n/edit)', and allows interactive CLI editing if needed)
 • Everything Stays in Terminal — Fully Working (Zero manual file editing required during setup)
 
 FILE-BY-FILE STATUS:
 src/intern_hunter/cli.py                  → Fully Working
-src/intern_hunter/interactive_setup.py    → Fully Working (Massively upgraded with interactive CV editor and GPU detection)
+src/intern_hunter/interactive_setup.py    → Fully Working (Massively upgraded with interactive CV editor, new model table structure, OS and GPU detection)
 src/intern_hunter/core/obsidian_tracker.py→ Fully Working 
 src/intern_hunter/obsidian_learner.py     → Fully Working 
 src/intern_hunter/core/llm.py             → Fully Working

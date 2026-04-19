@@ -1,13 +1,14 @@
 import os
+import sys
 import yaml
 import questionary
 import psutil
 import subprocess
+import platform
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 from pathlib import Path
-from rich.prompt import Confirm
 from rich.markdown import Markdown
 
 console = Console()
@@ -63,9 +64,12 @@ def detect_obsidian_vault() -> str | None:
 
 def detect_gpu():
     try:
-        result = subprocess.run(["nvidia-smi", "--query-gpu=name,memory.total", "--format=csv,noheader"], capture_output=True, text=True)
+        result = subprocess.run(
+            ["nvidia-smi", "--query-gpu=name,memory.total", "--format=csv,noheader"], 
+            capture_output=True, text=True
+        )
         if result.returncode == 0 and result.stdout.strip():
-            return result.stdout.strip()
+            return result.stdout.strip().replace(", ", " - ")
     except FileNotFoundError:
         pass
     return "None Detected"
@@ -79,14 +83,6 @@ def get_pulled_ollama_models():
     except FileNotFoundError:
         pass
     return []
-
-def recommend_ollama_model(ram_gb: float) -> str:
-    if ram_gb >= 32:
-        return "llama3.3:70b"
-    elif ram_gb >= 16:
-        return "llama3.1:8b"
-    else:
-        return "gemma2:9b"
 
 def pull_ollama_model(model_name: str):
     with console.status(f"[yellow]Pulling {model_name} (this might take a few minutes)...[/yellow]", spinner="dots"):
@@ -108,8 +104,12 @@ def interactive_resume_editor():
             
         console.print(Panel(Markdown(content[:1500] + "\n\n*(Truncated for display)*"), title="📄 Resume Summary", border_style="cyan"))
         
-        looks_good = questionary.confirm("Looks good? (Y/n)").ask()
-        if not looks_good:
+        action = questionary.select(
+            "Does this look correct?",
+            choices=["Yes (Proceed)", "No (Skip)", "Edit (Section-by-section)"]
+        ).ask()
+        
+        if action == "Edit (Section-by-section)":
             console.print("[yellow]Let's edit your resume interactively.[/yellow]")
             new_content = ""
             
@@ -130,6 +130,20 @@ def run_wizard():
     console.clear()
     console.print(Panel.fit("🚀 Let's set up InternHunter in under 2 minutes", style="bold cyan"))
 
+    # 0. PC Specs
+    console.print("\n[bold cyan][0/6] Detected System Specs[/bold cyan]")
+    ram_gb = psutil.virtual_memory().total / (1024**3)
+    cpu_cores = psutil.cpu_count(logical=True)
+    gpu_info = detect_gpu()
+    os_name = f"{platform.system()} {platform.release()}"
+
+    spec_table = Table(show_header=False, box=None)
+    spec_table.add_row("Total RAM:", f"[bold]{ram_gb:.1f} GB[/bold]")
+    spec_table.add_row("CPU Cores:", f"[bold]{cpu_cores}[/bold]")
+    spec_table.add_row("GPU:", f"[bold]{gpu_info}[/bold]")
+    spec_table.add_row("Detected OS:", f"[bold]{os_name}[/bold]")
+    console.print(Panel(spec_table, border_style="blue", title="🖥️ Hardware Profile"))
+
     # 1. Obsidian Vault
     console.print("\n[bold cyan][1/6] Obsidian Vault Path[/bold cyan]")
     default_vault = detect_obsidian_vault() or str(Path.home() / "Obsidian")
@@ -145,42 +159,47 @@ def run_wizard():
     interactive_resume_editor()
 
     # 3. Local AI Support
-    console.print("\n[bold cyan][3/6] Hardware Detection & Local AI[/bold cyan]")
-    ram_gb = psutil.virtual_memory().total / (1024**3)
-    cpu_cores = psutil.cpu_count(logical=True)
-    gpu_info = detect_gpu()
+    console.print("\n[bold cyan][3/6] Smart Ollama Model Setup[/bold cyan]")
     pulled_models = get_pulled_ollama_models()
     
-    spec_panel = f"• **RAM**: {ram_gb:.1f} GB\n• **CPU Cores**: {cpu_cores}\n• **GPU**: {gpu_info}"
-    console.print(Panel(Markdown(spec_panel), title="🖥️ Detected Hardware", border_style="blue"))
+    model_table = Table(title="Available 2026 Models for your Hardware")
+    model_table.add_column("Model Name", style="cyan")
+    model_table.add_column("Size", style="yellow")
+    model_table.add_column("Est. Accuracy vs Cloud", style="green")
+    model_table.add_column("Recommended", style="magenta")
     
-    table = Table(title="Hardware Analysis vs Local Models")
-    table.add_column("Your Hardware", style="cyan")
-    table.add_column("Recommended Model", style="magenta")
-    table.add_column("Expected Quality vs Cloud", style="green")
+    choices = []
+    default_model = "gemma2:9b"
     
     if ram_gb < 12:
-        table.add_row("8-12 GB RAM", "Gemma2 9B", "80% (Good for basic tasks)")
+        model_table.add_row("gemma2:9b", "5.5 GB", "80%", "Yes (Sweet Spot)")
+        model_table.add_row("phi3.5:mini", "2.2 GB", "75%", "For low-end PCs")
         choices = ["gemma2:9b", "phi3.5:mini"]
+        default_model = "gemma2:9b"
     elif ram_gb < 28:
-        table.add_row("16-24 GB RAM", "Llama 3.1 8B", "88% (Sweet Spot - Fast & Smart)")
+        model_table.add_row("llama3.1:8b", "4.7 GB", "88%", "Yes (Sweet Spot)")
+        model_table.add_row("gemma2:9b", "5.5 GB", "80%", "Alternative")
+        model_table.add_row("qwen2.5:14b", "8.0 GB", "90%", "Heavier")
         choices = ["llama3.1:8b", "gemma2:9b", "qwen2.5:14b"]
+        default_model = "llama3.1:8b"
     else:
-        table.add_row("32+ GB RAM", "Llama 3.3 70B Q4", "98% (Cloud-level reasoning)")
+        model_table.add_row("llama3.3:70b", "40.0 GB", "98%", "Yes (Cloud-level)")
+        model_table.add_row("qwen2.5:32b", "20.0 GB", "95%", "Very fast & smart")
+        model_table.add_row("llama3.1:8b", "4.7 GB", "88%", "Lightweight fallback")
         choices = ["llama3.3:70b", "qwen2.5:32b", "llama3.1:8b"]
+        default_model = "llama3.3:70b"
         
-    console.print(table)
+    console.print(model_table)
 
     if pulled_models:
-        console.print(f"[italic]Already installed models: {', '.join(pulled_models)}[/italic]")
+        console.print(f"[italic]You already have: {', '.join(pulled_models)}[/italic]")
 
     use_ollama = questionary.confirm("Want to run everything locally with Ollama? (Free & Private)").ask()
     if use_ollama:
-        recommended = recommend_ollama_model(ram_gb)
         model_choice = questionary.select(
             "Which model would you like to use?",
             choices=choices,
-            default=recommended if recommended in choices else choices[0]
+            default=default_model if default_model in choices else choices[0]
         ).ask()
         
         if model_choice not in pulled_models:
@@ -193,7 +212,7 @@ def run_wizard():
                 update_env_file("LLM_PROVIDER", "ollama")
                 update_env_file("OLLAMA_MODEL", model_choice)
         else:
-            console.print(f"[green]✅ {model_choice} is already pulled![/green]")
+            console.print(f"[green]✅ {model_choice} is already ready to go![/green]")
             update_env_file("LLM_PROVIDER", "ollama")
             update_env_file("OLLAMA_MODEL", model_choice)
     else:
