@@ -2,7 +2,7 @@ import pytest
 from intern_hunter.models import Job
 from intern_hunter.core.scorer import JobScorer
 
-def test_scorer_dream_company_boost(mocker):
+def test_scorer_dream_company_boost():
     # Mocking the LLM client so we don't actually call Groq during tests
     job = Job(
         id="123", title="AI Intern", company="OpenAI", location="Remote", 

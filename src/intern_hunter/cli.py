@@ -1,6 +1,7 @@
 import typer
 from rich.console import Console
 from rich.panel import Panel
+from rich.progress import Progress, SpinnerColumn, TextColumn
 import asyncio
 import csv
 from datetime import datetime
@@ -15,8 +16,10 @@ from intern_hunter.core.email_engine import EmailEngine
 from intern_hunter.core.obsidian_tracker import ObsidianTracker
 from intern_hunter.core.reply_intelligence import ReplyIntelligence
 from intern_hunter.core.telegram_bot import TelegramGuidanceBot
+from intern_hunter.interactive_setup import run_wizard
+from intern_hunter.obsidian_learner import learn_from_obsidian
 
-app = typer.Typer(help="Intern-Hunter-AI: Automated AI/ML Internship Outreach")
+app = typer.Typer(help="🚀 InternHunter AI — Land top-tier remote/research internships")
 console = Console()
 
 def export_to_csv(job, score, status):
@@ -31,12 +34,15 @@ def export_to_csv(job, score, status):
         writer.writerow([date_str, job.company, job.title, score, status])
 
 @app.command()
-def start(dry_run: bool = typer.Option(False, "--dry-run", help="Run without sending emails or writing notes"),
+def setup():
+    """Run the full beautiful interactive wizard"""
+    run_wizard()
+
+@app.command()
+def start(dry_run: bool = typer.Option(False, "--dry-run", help="Test without sending emails"),
           top_tier_only: bool = typer.Option(False, "--top-tier-only", help="Only process Dream Companies")):
-    """
-    Run the complete daily pipeline immediately.
-    """
-    console.print(Panel.fit("[bold green]Starting Intern-Hunter-AI Pipeline[/bold green] 🚀"))
+    """Start the daily pipeline"""
+    console.print(Panel.fit("🚀 Starting InternHunter pipeline...", style="bold cyan"))
     
     # 1. Scrape
     console.print("[cyan]Scraping jobs...[/cyan]")
@@ -56,7 +62,6 @@ def start(dry_run: bool = typer.Option(False, "--dry-run", help="Run without sen
     tracker = ObsidianTracker()
     bot = TelegramGuidanceBot()
     
-    # Needs a dummy master resume text for scoring if PyMuPDF not fully used yet
     master_resume_text = "AI/ML Engineer looking for an internship." 
     try:
         master_resume_text = tailor._read_master_resume()
@@ -64,7 +69,7 @@ def start(dry_run: bool = typer.Option(False, "--dry-run", help="Run without sen
         pass
 
     sent_count = 0
-    rejections = 0 # Dummy count for now
+    rejections = 0
     
     for job in jobs[:settings.max_emails_per_day]:
         console.print(f"\n[bold]Evaluating:[/bold] {job.title} @ {job.company}")
@@ -109,14 +114,29 @@ def start(dry_run: bool = typer.Option(False, "--dry-run", help="Run without sen
         console.print(f"[green]Sending email for {job.company}...[/green]")
         email_engine.send_email("dummy_recruiter@example.com", draft)
         tracker.create_note(job)
+        tracker.create_mail_note(job, draft)
         export_to_csv(job, job.confidence_score, "Applied")
         sent_count += 1
         
+    jobs_processed = len(jobs[:settings.max_emails_per_day])
+    jobs_skipped = jobs_processed - sent_count
+    
     console.print(f"\n[bold green]Pipeline finished! Sent {sent_count} emails.[/bold green]")
+    tracker.create_session_note(jobs_processed, sent_count, jobs_skipped, rejections)
+    tracker.update_heartbeat(sent_count, rejections)
     asyncio.run(bot.send_daily_summary(sent_count, rejections))
 
 @app.command()
+def learn():
+    """Force self-learning from your Obsidian vault"""
+    with Progress(SpinnerColumn(), TextColumn("{task.description}")) as progress:
+        task = progress.add_task("Reading your Obsidian notes and learning...", total=None)
+        learn_from_obsidian()
+    console.print("✅ Self-learning complete! Future emails & scoring will now be smarter.", style="bold green")
+
+@app.command()
 def scrape():
+    """Only scrape jobs and print them"""
     scraper = JobScraper()
     jobs = asyncio.run(scraper.run())
     for j in jobs:
@@ -124,6 +144,7 @@ def scrape():
 
 @app.command()
 def report():
+    """Generate and print the daily analytics report"""
     console.print("[bold magenta]Checking replies and generating report...[/bold magenta]")
     reply_intel = ReplyIntelligence()
     reply_intel.check_replies()
@@ -131,9 +152,42 @@ def report():
 
 @app.command()
 def schedule():
-    console.print("[bold yellow]Starting background scheduler...[/bold yellow]")
+    """Start daily background scheduler"""
+    console.print("✅ Scheduler started — runs every day at 8 AM IST")
     from intern_hunter.core.scheduler import start_scheduler
     start_scheduler()
+
+@app.command()
+def models():
+    """Switch LLM providers and Ollama models on the fly"""
+    provider = questionary.select(
+        "Choose your LLM Provider:",
+        choices=["ollama", "groq", "gemini"],
+        default=settings.LLM_PROVIDER
+    ).ask()
+    
+    if provider:
+        from intern_hunter.interactive_setup import update_env_file
+        update_env_file("LLM_PROVIDER", provider)
+        
+        if provider == "ollama":
+            model = questionary.text("Enter Ollama model name (e.g. llama3.1:8b):", default=settings.OLLAMA_MODEL).ask()
+            if model:
+                update_env_file("OLLAMA_MODEL", model)
+                console.print(f"[green]Switched to Ollama using {model}[/green]")
+        else:
+            console.print(f"[green]Switched to {provider}[/green]")
+
+@app.callback(invoke_without_command=True)
+def main(ctx: typer.Context):
+    """Default command — launches wizard on first run"""
+    if ctx.invoked_subcommand is None:
+        console.print(Panel.fit(
+            "[bold cyan]InternHunter AI — 2026 Edition[/]\n"
+            "The smartest way to land remote AI/ML & research internships at OpenAI, Anthropic, Google DeepMind & more",
+            title="Welcome Kamyavardhan!"
+        ))
+        run_wizard()
 
 if __name__ == "__main__":
     app()

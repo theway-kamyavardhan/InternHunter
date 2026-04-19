@@ -1,12 +1,10 @@
-# Hunter Configuration
-max_emails_per_day: 15
 confidence_threshold: 75
-
+max_emails_per_day: 15
 target_roles:
-  - "AI Engineer Intern"
-  - "Machine Learning Intern"
-  - "Research Intern"
-  - "Computer Vision Intern"
-  - "Generative AI Intern"
-  - "LLM Intern"
-  - "RAG Intern"
+- AI Engineer Intern
+- Machine Learning Intern
+- Research Intern
+- Computer Vision Intern
+- Generative AI Intern
+- LLM Intern
+- RAG Intern

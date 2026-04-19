@@ -1,28 +1,21 @@
 import random
-import time
 import sendgrid
 from sendgrid.helpers.mail import Mail, Email, To, Content, Attachment, FileContent, FileName, FileType, Disposition
 import base64
-import groq
-from intern_hunter.config import settings
-from intern_hunter.models import Job, EmailDraft
 import smtplib
 from email.message import EmailMessage
+from intern_hunter.config import settings
+from intern_hunter.models import Job, EmailDraft
+from intern_hunter.core.llm import get_llm_client
 
 class EmailEngine:
     def __init__(self):
         self.sg_key = settings.SENDGRID_API_KEY
-        self.groq_key = settings.GROQ_API_KEY
         self.gmail = settings.GMAIL_ADDRESS
         self.gmail_pw = settings.GMAIL_APP_PASSWORD
-        
-        if self.groq_key:
-            self.llm_client = groq.Groq(api_key=self.groq_key)
+        self.llm = get_llm_client()
 
     def generate_draft(self, job: Job, pdf_path: str) -> EmailDraft:
-        """
-        Generate hyper-personalized cold email draft.
-        """
         subjects = [
             f"AI/ML Intern Candidate - {job.title} - Kamyavardhan Dave",
             f"Passionate about {job.company}'s mission - AI Intern Candidate",
@@ -43,18 +36,13 @@ class EmailEngine:
         """
         
         body = "Hi team,\n\nI am applying for the role.\n\nBest, Kamya"
-        if self.llm_client:
-            try:
-                res = self.llm_client.chat.completions.create(
-                    model="llama3-70b-8192",
-                    messages=[{"role": "user", "content": prompt}],
-                    temperature=0.6
-                )
-                body = res.choices[0].message.content.strip()
-            except Exception as e:
-                print(f"Error generating email: {e}")
+        try:
+            res = self.llm.generate(prompt, temperature=0.6)
+            if res:
+                body = res
+        except Exception as e:
+            print(f"Error generating email: {e}")
                 
-        # Calculate Personal Touch Score (dummy logic for now)
         score = random.randint(60, 100) if not job.is_dream_company else 100
         
         return EmailDraft(
@@ -65,10 +53,6 @@ class EmailEngine:
         )
 
     def send_email(self, to_email: str, draft: EmailDraft):
-        """
-        Sends email using SendGrid, or Gmail fallback.
-        Adds randomized human-like delays.
-        """
         print("Sleeping for human-like delay (45-180s)...")
         # time.sleep(random.randint(45, 180)) # Commented out for dev speed
         

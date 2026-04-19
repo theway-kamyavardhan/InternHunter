@@ -2,15 +2,13 @@ import os
 import fitz  # PyMuPDF
 from weasyprint import HTML, CSS
 from jinja2 import Template
-import groq
 from intern_hunter.config import settings
 from intern_hunter.models import Job
+from intern_hunter.core.llm import get_llm_client
 
 class ResumeTailor:
     def __init__(self):
-        self.groq_key = settings.GROQ_API_KEY
-        if self.groq_key:
-            self.client = groq.Groq(api_key=self.groq_key)
+        self.llm = get_llm_client()
             
     def _read_master_resume(self) -> str:
         md_path = "master_resume.md"
@@ -39,7 +37,6 @@ class ResumeTailor:
             print("No master resume found!")
             return ""
             
-        # 1. Rewrite using LLM
         prompt = f"""
         Rewrite this resume to highlight skills and experiences most relevant to the following job description.
         Keep the core facts truthful, but adjust the phrasing and emphasize keywords from the JD.
@@ -53,21 +50,15 @@ class ResumeTailor:
         """
         
         html_content = "<h1>Kamyavardhan Dave</h1><p>Failed to generate tailored resume.</p>"
-        if self.client:
-            try:
-                response = self.client.chat.completions.create(
-                    model="llama3-70b-8192",
-                    messages=[{"role": "user", "content": prompt}],
-                    temperature=0.3
-                )
-                html_content = response.choices[0].message.content.strip()
-                # Remove markdown code block markers if present
+        try:
+            res = self.llm.generate(prompt, temperature=0.3)
+            if res:
+                html_content = res
                 if html_content.startswith("```html"):
                     html_content = html_content[7:-3]
-            except Exception as e:
-                print(f"Error tailoring resume: {e}")
+        except Exception as e:
+            print(f"Error tailoring resume: {e}")
                 
-        # 2. Generate PDF
         date_str = job.posted_at.strftime("%Y%m%d") if job.posted_at else "today"
         pdf_name = f"Kamyavardhan_Dave_AI_Intern_{job.company.replace(' ', '_')}_{date_str}.pdf"
         pdf_path = os.path.join("exports", pdf_name)

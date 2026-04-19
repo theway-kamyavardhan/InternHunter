@@ -29,6 +29,10 @@ class Settings(BaseSettings):
     # Obsidian
     OBSIDIAN_VAULT_PATH: str = Field(default="./obsidian_template")
     
+    # LLM Settings
+    LLM_PROVIDER: str = Field(default="groq")
+    OLLAMA_MODEL: str = Field(default="gemma2")
+    
     # Application runtime configurations (Loaded from yaml)
     max_emails_per_day: int = 15
     confidence_threshold: int = 75

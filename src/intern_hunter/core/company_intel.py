@@ -1,19 +1,14 @@
-import groq
 from intern_hunter.config import settings
+from intern_hunter.core.llm import get_llm_client
 
 class CompanyIntel:
     def __init__(self):
-        self.groq_key = settings.GROQ_API_KEY
-        if self.groq_key:
-            self.client = groq.Groq(api_key=self.groq_key)
+        self.llm = get_llm_client()
 
     def generate_intel(self, company: str) -> str:
         """
         Generates a 1-2 sentence hyper-relevant intelligence paragraph for a Dream Company.
         """
-        if not self.groq_key:
-            return ""
-            
         prompt = f"""
         Write exactly 1-2 short, professional sentences about a recent impressive milestone, 
         product launch, or funding round for the AI company '{company}'. 
@@ -22,13 +17,7 @@ class CompanyIntel:
         """
         
         try:
-            response = self.client.chat.completions.create(
-                model="llama3-70b-8192",
-                messages=[{"role": "user", "content": prompt}],
-                temperature=0.7,
-                max_tokens=100
-            )
-            return response.choices[0].message.content.strip()
+            return self.llm.generate(prompt, temperature=0.7)
         except Exception as e:
             print(f"Error generating intel for {company}: {e}")
             return ""

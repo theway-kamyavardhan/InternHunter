@@ -52,10 +52,7 @@ mkdir -p obsidian_template/Internships/Templates
 mkdir -p exports
 
 echo "====================================================="
-echo "✅ Setup Complete!"
-echo "To get started:"
-echo "  1. Fill in your API keys in the .env file"
-echo "  2. Review config/hunter_config.yaml"
-echo "  3. Run: poetry shell"
-echo "  4. Run: intern-hunter start"
+echo "✅ Setup Complete! Launching Interactive Wizard..."
+echo "====================================================="
+poetry run intern-hunter setup
 echo "====================================================="
